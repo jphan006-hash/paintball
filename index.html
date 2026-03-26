@@ -1,53 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Froggy Eats Game</title>
-    <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #222; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
-        canvas { background-color: #0077be; border: 4px solid #004d00; border-radius: 10px; cursor: crosshair; }
-        #game-container { text-align: center; position: relative; }
-        #game-stats { margin-bottom: 10px; font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; }
-        .modal { display: flex; position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
-        .modal-content { background-color: #e0f2f1; padding: 30px; border-radius: 15px; color: #333; text-align: center; border: 4px solid #4CAF50; }
-        .character-option { display: inline-block; padding: 15px; margin: 10px; cursor: pointer; border: 3px solid #333; border-radius: 50%; width: 60px; height: 60px; }
-        .character-option:hover { transform: scale(1.1); }
-        button { padding: 10px 25px; background-color: #4CAF50; color: white; border: none; cursor: pointer; font-size: 16px; border-radius: 5px; margin-top: 15px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Froggy Eats Game</title>
+<style>
+body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #222;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+}
+canvas {
+    background-color: #0077be;
+    border: 4px solid #004d00;
+    border-radius: 10px;
+    cursor: crosshair;
+}
+#game-container {
+    text-align: center;
+    position: relative;
+}
+#game-stats {
+    margin-bottom: 10px;
+    font-size: 20px;
+    font-weight: bold;
+    background: rgba(0,0,0,0.5);
+    padding: 10px;
+    border-radius: 5px;
+}
+.modal {
+    display: flex;
+    position: fixed;
+    z-index: 10;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    justify-content: center;
+    align-items: center;
+}
+.modal-content {
+    background-color: #e0f2f1;
+    padding: 30px;
+    border-radius: 15px;
+    color: #333;
+    text-align: center;
+    border: 4px solid #4CAF50;
+}
+.character-option {
+    display: inline-block;
+    padding: 15px;
+    margin: 10px;
+    cursor: pointer;
+    border: 3px solid #333;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+}
+.character-option:hover {
+    transform: scale(1.1);
+}
+button {
+    padding: 10px 25px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 5px;
+    margin-top: 15px;
+}
+</style>
 </head>
 <body>
-    <div id="game-container">
-        <div id="game-stats">Health: <span id="hp">100</span> | Flies Eaten: <span id="score">0</span></div>
-        <canvas id="gameCanvas" width="800" height="500"></canvas>
-    </div>
 
-    <div id="startModal" class="modal">
-        <div class="modal-content">
-            <h2>Select Lily Pad Color</h2>
-            <div id="char-selection">
-                <div class="character-option" onclick="startGame('#4CAF50')" style="background-color: #4CAF50;"></div>
-                <div class="character-option" onclick="startGame('#8BC34A')" style="background-color: #8BC34A;"></div>
-            </div>
-            <p>Use Mouse to move, 'F' to eat flies!</p>
+<div id="game-container">
+    <div id="game-stats">Health: <span id="hp">100</span> | Flies Eaten: <span id="score">0</span></div>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+</div>
+
+<div id="startModal" class="modal">
+    <div class="modal-content">
+        <h2>Select Lily Pad Color</h2>
+        <div id="char-selection">
+            <div class="character-option" onclick="startGame('#4CAF50')" style="background-color: #4CAF50;"></div>
+            <!-- Added more options and closing tags -->
+            <div class="character-option" onclick="startGame('#FF5733')" style="background-color: #FF5733;"></div>
+            <div class="character-option" onclick="startGame('#33B5FF')" style="background-color: #33B5FF;"></div>
         </div>
+        <button onclick="startGame()">Start Game</button>
     </div>
+</div>
 
-<script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const hpSpan = document.getElementById('hp');
-    const scoreSpan = document.getElementById('score');
-    const startModal = document.getElementById('startModal');
+<!-- Game Over Modal -->
+<div id="gameOverModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h2>Game Over!</h2>
+        <p id="finalScore">Your final score: 0</p>
+        <button onclick="window.location.reload()">Play Again</button>
+    </div>
+</div>
 
-    let gameActive = false;
-    let frog = { x: 400, y: 250, size: 30, color: '#4CAF50' };
-    let flies = [];
-    let score = 0;
-    let hp = 100;
-    let mouse = { x: 400, y: 250 };
+<script src="game.js"></script>
 
-    canvas.addEventListener('mousemove', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        mouse.x = e.clientX - rect.left;
-        mouse.y = e.clientY - rect.top
+</body>
+</html>
