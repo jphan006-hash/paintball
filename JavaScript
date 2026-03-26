@@ -1,0 +1,118 @@
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const hpStat = document.getElementById('hp');
+const scoreStat = document.getElementById('score');
+const startModal = document.getElementById('startModal');
+const gameOverModal = document.getElementById('gameOverModal');
+const finalScoreElement = document.getElementById('finalScore');
+
+let score = 0;
+let health = 100;
+let frogColor = '#4CAF50'; // Default color
+let gameRunning = false;
+let flies = [];
+const flySize = 20;
+
+// Function called by the HTML buttons to start the game
+function startGame(color) {
+    if (color) {
+        frogColor = color;
+    }
+    startModal.style.display = 'none';
+    gameRunning = true;
+    score = 0;
+    health = 100;
+    hpStat.textContent = health;
+    scoreStat.textContent = score;
+    flies = [];
+    gameLoop();
+    canvas.addEventListener('click', eatFly);
+}
+
+// Fly object constructor
+function Fly(x, y) {
+    this.x = x;
+    this.y = y;
+    this.speedX = (Math.random() - 0.5) * 4;
+    this.speedY = (Math.random() - 0.5) * 4;
+}
+
+// Game loop
+function gameLoop() {
+    if (!gameRunning) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw the frog/lilypad
+    ctx.fillStyle = frogColor;
+    ctx.beginPath();
+    ctx.arc(canvas.width / 2, canvas.height / 2, 40, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Spawn new flies
+    if (Math.random() < 0.05) { // Spawn rate
+        flies.push(new Fly(
+            Math.random() * canvas.width, 
+            Math.random() * canvas.height
+        ));
+    }
+
+    // Update and draw flies
+    for (let i = 0; i < flies.length; i++) {
+        const fly = flies[i];
+        fly.x += fly.speedX;
+        fly.y += fly.speedY;
+
+        // Bounce off walls
+        if (fly.x < 0 || fly.x > canvas.width) fly.speedX *= -1;
+        if (fly.y < 0 || fly.y > canvas.height) fly.speedY *= -1;
+
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(fly.x, fly.y, flySize, flySize);
+    }
+
+    // Update stats display
+    hpStat.textContent = health;
+    scoreStat.textContent = score;
+
+    requestAnimationFrame(gameLoop);
+}
+
+// Function to handle clicking on flies (eating them)
+function eatFly(event) {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    for (let i = flies.length - 1; i >= 0; i--) {
+        const fly = flies[i];
+        // Simple collision detection for the square fly
+        if (mouseX > fly.x && mouseX < fly.x + flySize &&
+            mouseY > fly.y && mouseY < fly.y + flySize) {
+            
+            flies.splice(i, 1);
+            score += 1;
+            health += 2; // Gain health for eating
+            if (health > 100) health = 100;
+            break;
+        }
+    }
+}
+
+// Simple health decay (optional, but makes the game challenging)
+setInterval(() => {
+    if (gameRunning) {
+        health -= 1;
+        if (health <= 0) {
+            gameOver();
+        }
+    }
+}, 1000);
+
+function gameOver() {
+    gameRunning = false;
+    canvas.removeEventListener('click', eatFly);
+    finalScoreElement.textContent = `Your final score: ${score}`;
+    gameOverModal.style.display = 'flex';
+}
+To run the game:
