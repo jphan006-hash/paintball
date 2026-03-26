@@ -1,118 +1,172 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const hpStat = document.getElementById('hp');
-const scoreStat = document.getElementById('score');
-const startModal = document.getElementById('startModal');
-const gameOverModal = document.getElementById('gameOverModal');
-const finalScoreElement = document.getElementById('finalScore');
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
+// Game State
+let gameRunning = false;
 let score = 0;
 let health = 100;
-let frogColor = '#4CAF50'; // Default color
-let gameRunning = false;
+let username = "Player 1";
+let selectedColor = "#4CAF50";
 let flies = [];
-const flySize = 20;
+let particles = [];
+let fPressed = false;
+let leaderboard = JSON.parse(localStorage.getItem("froggyScores")) || [];
 
-// Function called by the HTML buttons to start the game
-function startGame(color) {
-    if (color) {
-        frogColor = color;
+let player = { x: 400, y: 250, radius: 25 };
+let mouse = { x: 400, y: 250 };
+
+// Input Listeners
+window.addEventListener("keydown", (e) => { if(e.key.toLowerCase() === 'f') fPressed = true; });
+window.addEventListener("keyup", (e) => { if(e.key.toLowerCase() === 'f') fPressed = false; });
+canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+});
+
+// UI Functions
+function selectFrog(color, el) {
+    selectedColor = color;
+    document.querySelectorAll('.character-option').forEach(opt => opt.classList.remove('selected'));
+    el.classList.add('selected');
+}
+
+function updateLeaderboardUI() {
+    const list = document.getElementById("leaderboard-list");
+    list.innerHTML = leaderboard.slice(0, 5)
+        .map((s, i) => `<div>#${i+1} <b>${s.name}</b>: ${s.score}</div>`).join('') || "No records yet!";
+}
+
+function updateHPBar() {
+    document.getElementById("hp-bar").style.width = Math.max(0, health) + "%";
+}
+
+// Game Logic
+function spawnFly() {
+    if(!gameRunning) return;
+    let x = Math.random() < 0.5 ? -20 : canvas.width + 20;
+    let y = Math.random() * canvas.height;
+    flies.push({ x: x, y: y, speed: 1.2 + (score * 0.05) });
+    setTimeout(spawnFly, Math.max(500, 2000 - (score * 50)));
+}
+
+function createPop(x, y) {
+    for(let i=0; i<8; i++) {
+        particles.push({
+            x: x, y: y, 
+            vx: (Math.random()-0.5)*10, 
+            vy: (Math.random()-0.5)*10, 
+            life: 1.0 
+        });
     }
-    startModal.style.display = 'none';
+}
+
+function startGame() {
+    username = document.getElementById("username").value || "Froggy";
+    document.getElementById("stat-name").innerText = username;
+    document.getElementById("startModal").style.display = "none";
+    score = 0; health = 100; flies = []; particles = [];
+    document.getElementById("score").innerText = score;
+    updateHPBar();
     gameRunning = true;
-    score = 0;
-    health = 100;
-    hpStat.textContent = health;
-    scoreStat.textContent = score;
-    flies = [];
+    spawnFly();
     gameLoop();
-    canvas.addEventListener('click', eatFly);
 }
 
-// Fly object constructor
-function Fly(x, y) {
-    this.x = x;
-    this.y = y;
-    this.speedX = (Math.random() - 0.5) * 4;
-    this.speedY = (Math.random() - 0.5) * 4;
+function endGame() {
+    gameRunning = false;
+    leaderboard.push({ name: username, score: score });
+    leaderboard.sort((a, b) => b.score - a.score);
+    localStorage.setItem("froggyScores", JSON.stringify(leaderboard.slice(0, 10)));
+    updateLeaderboardUI();
+    document.getElementById("startModal").style.display = "flex";
 }
 
-// Game loop
+// Update Loop
+function update() {
+    player.x += (mouse.x - player.x) * 0.12;
+    player.y += (mouse.y - player.y) * 0.12;
+
+    // Particles
+    particles.forEach((p, i) => {
+        p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+        if(p.life <= 0) particles.splice(i, 1);
+    });
+
+    for (let i = flies.length - 1; i >= 0; i--) {
+        let f = flies[i];
+        let dx = player.x - f.x;
+        let dy = player.y - f.y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        
+        f.x += (dx / dist) * f.speed;
+        f.y += (dy / dist) * f.speed;
+
+        // Eat detection
+        if (fPressed) {
+            let tDist = Math.sqrt((mouse.x-f.x)**2 + (mouse.y-f.y)**2);
+            if (tDist < 25) {
+                createPop(f.x, f.y);
+                flies.splice(i, 1);
+                score++;
+                document.getElementById("score").innerText = score;
+                continue;
+            }
+        }
+
+        // Damage detection
+        if (dist < player.radius) {
+            health -= 0.5; 
+            updateHPBar();
+            if(health <= 0) endGame();
+        }
+    }
+}
+
+// Render Loop
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Particles
+    particles.forEach(p => {
+        ctx.fillStyle = `rgba(0,0,0,${p.life})`;
+        ctx.fillRect(p.x, p.y, 4, 4);
+    });
+
+    // Flies
+    flies.forEach(f => {
+        ctx.fillStyle = "white"; 
+        ctx.beginPath(); ctx.arc(f.x-4, f.y-4, 5, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(f.x+4, f.y-4, 5, 0, 7); ctx.fill();
+        ctx.fillStyle = "#111"; 
+        ctx.beginPath(); ctx.arc(f.x, f.y, 6, 0, 7); ctx.fill();
+    });
+
+    // Lily Pad
+    ctx.fillStyle = "#2e7d32";
+    ctx.beginPath(); ctx.ellipse(player.x, player.y + 10, 45, 18, 0, 0, 6.2); ctx.fill();
+
+    // Tongue
+    if(fPressed) {
+        ctx.strokeStyle = "#ff80ab"; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(mouse.x, mouse.y); ctx.stroke();
+        ctx.fillStyle = "#ff4081";
+        ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 8, 0, 7); ctx.fill();
+    }
+
+    // Frog
+    ctx.fillStyle = selectedColor;
+    ctx.beginPath(); ctx.arc(player.x, player.y, 25, 0, 7); ctx.fill();
+    ctx.fillStyle = "white";
+    ctx.beginPath(); ctx.arc(player.x-10, player.y-12, 7, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(player.x+10, player.y-12, 7, 0, 7); ctx.fill();
+}
+
 function gameLoop() {
     if (!gameRunning) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw the frog/lilypad
-    ctx.fillStyle = frogColor;
-    ctx.beginPath();
-    ctx.arc(canvas.width / 2, canvas.height / 2, 40, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Spawn new flies
-    if (Math.random() < 0.05) { // Spawn rate
-        flies.push(new Fly(
-            Math.random() * canvas.width, 
-            Math.random() * canvas.height
-        ));
-    }
-
-    // Update and draw flies
-    for (let i = 0; i < flies.length; i++) {
-        const fly = flies[i];
-        fly.x += fly.speedX;
-        fly.y += fly.speedY;
-
-        // Bounce off walls
-        if (fly.x < 0 || fly.x > canvas.width) fly.speedX *= -1;
-        if (fly.y < 0 || fly.y > canvas.height) fly.speedY *= -1;
-
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(fly.x, fly.y, flySize, flySize);
-    }
-
-    // Update stats display
-    hpStat.textContent = health;
-    scoreStat.textContent = score;
-
+    update();
+    draw();
     requestAnimationFrame(gameLoop);
 }
 
-// Function to handle clicking on flies (eating them)
-function eatFly(event) {
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-
-    for (let i = flies.length - 1; i >= 0; i--) {
-        const fly = flies[i];
-        // Simple collision detection for the square fly
-        if (mouseX > fly.x && mouseX < fly.x + flySize &&
-            mouseY > fly.y && mouseY < fly.y + flySize) {
-            
-            flies.splice(i, 1);
-            score += 1;
-            health += 2; // Gain health for eating
-            if (health > 100) health = 100;
-            break;
-        }
-    }
-}
-
-// Simple health decay (optional, but makes the game challenging)
-setInterval(() => {
-    if (gameRunning) {
-        health -= 1;
-        if (health <= 0) {
-            gameOver();
-        }
-    }
-}, 1000);
-
-function gameOver() {
-    gameRunning = false;
-    canvas.removeEventListener('click', eatFly);
-    finalScoreElement.textContent = `Your final score: ${score}`;
-    gameOverModal.style.display = 'flex';
-}
-To run the game:
+updateLeaderboardUI();
