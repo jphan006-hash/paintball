@@ -5,444 +5,162 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Paintball Game</title>
     <style>
-        body {
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #333;
-            color: white;
-            font-family: Arial, sans-serif;
-        }
-        canvas {
-            background-color: #f50000; /* Red "paintball field" color */
-            border: 2px solid black;
-        }
-        #game-container {
-            text-align: center;
-        }
-        #game-stats {
-            margin-bottom: 10px;
-            font-size: 18px;
-        }
-
-        /* Modal (tutorial) styling */
-        .modal {
-            display: none; /* Hidden by default */
-            position: fixed; /* Stay in place */
-            z-index: 10; /* Sit on top of the game canvas */
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.7); /* Black with opacity */
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            background-color: #fefefe;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%;
-            max-width: 500px;
-            color: black;
-            border-radius: 10px;
-        }
-
-        .close-button {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close-button:hover,
-        .close-button:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-
-        #start-game-button {
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 15px;
-        }
-        
-        #start-game-button:hover {
-            background-color: #45a049;
-        }
-
-        /* Health Bar Styling (Optional, but included in original HTML) */
-        .health-bar-container {
-            width: 200px;
-            background-color: #ddd;
-            border-radius: 5px;
-            margin-top: 10px;
-            display: none; /* Hide until game starts or if not used in JS */
-        }
-
-        #health-bar-fill {
-            height: 20px;
-            background-color: #ff0000;
-            border-radius: 5px;
-            width: 100%; /* Will be controlled by JavaScript */
-            text-align: center;
-            line-height: 20px;
-            color: white;
-        }
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #333; color: white; font-family: Arial, sans-serif; }
+        canvas { background-color: #f50000; border: 2px solid black; }
+        #game-container { text-align: center; position: relative; }
+        #game-stats { margin-bottom: 10px; font-size: 18px; }
+        .modal { display: flex; /* Changed from none to flex for start screen */ position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fefefe; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; color: black; border-radius: 10px; }
+        .character-option { display: inline-block; padding: 10px; cursor: pointer; border: 2px solid transparent; }
+        .character-option:hover { border: 2px solid blue; }
+        button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <div id="game-container">
-        <div id="game-stats">
-            Ammo: <span id="ammo-count">10</span> | Score: <span id="score-count">0</span> | Health: <span id="health-count">100</span>
+
+<div id="game-container">
+    <div id="game-stats">Health: <span id="hp">100</span> | Enemies: <span id="enemy-count">0</span></div>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+</div>
+
+<!-- Start/Character Modal -->
+<div id="startModal" class="modal">
+    <div class="modal-content">
+        <h2>Select Character & Start</h2>
+        <div id="char-selection">
+            <div class="character-option" onclick="selectChar('blue')" style="background-color: #add8e6;">Blue Defender</div>
+            <div class="character-option" onclick="selectChar('yellow')" style="background-color: #ffffcc;">Yellow Scout</div>
         </div>
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <br>
+        <button id="start-game-button" onclick="startGame()">Start Game</button>
     </div>
+</div>
 
-    <!-- Health bar element from original code. Note: the text stats above are used in the JS below -->
-    <div class="health-bar-container">
-        <div id="health-bar-fill"></div>
-    </div>
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const hpSpan = document.getElementById('hp');
+    const enemySpan = document.getElementById('enemy-count');
+    const startModal = document.getElementById('startModal');
 
-    <div id="tutorial-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h2>Game Tutorial</h2>
-            <p><strong>Controls:</strong></p>
-            <ul>
-                <li>Use <strong>WASD</strong> or <strong>Arrow Keys</strong> to move.</li>
-                <li>Click to <strong>shoot</strong> enemies.</li>
-                <li>Pick up **ammo cans** to reload (max 30 ammo).</li>
-                <li>Avoid enemy hits to keep your **health** up.</li>
-                <li>Your goal is to achieve the highest possible **score**!</li>
-            </ul>
-            <button id="start-game-button">Start Game</button>
-        </div>
-    </div>
-    
-    <!-- JavaScript Game Logic -->
-    <script>
-        // Get canvas and context
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const gameStats = document.getElementById('game-stats');
-        const ammoCountEl = document.getElementById('ammo-count');
-        const scoreCountEl = document.getElementById('score-count');
-        const healthCountEl = document.getElementById('health-count');
-        const tutorialModal = document.getElementById('tutorial-modal');
-        const startGameButton = document.getElementById('start-game-button');
-        const closeButton = document.querySelector('.close-button');
+    let player = { x: 400, y: 250, size: 20, color: 'blue', hp: 100, maxHp: 100, speed: 5 };
+    let enemies = [];
+    let healthPacks = [];
+    let gameRunning = false;
+    let keys = {};
 
-        let gameState = 'TUTORIAL'; // 'TUTORIAL', 'PLAYING', 'GAME_OVER'
+    // --- CHARACTER SELECTION ---
+    function selectChar(color) {
+        player.color = color;
+        player.maxHp = (color === 'yellow') ? 80 : 120; // Different stats
+        player.speed = (color === 'yellow') ? 7 : 5;
+        player.hp = player.maxHp;
+    }
 
-        // Player object
-        const player = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            radius: 15,
-            color: 'blue',
-            speed: 5,
-            health: 100,
-            maxHealth: 100,
-            ammo: 10,
-            maxAmmo: 30
-        };
+    function startGame() {
+        startModal.style.display = 'none';
+        gameRunning = true;
+        spawnEnemy();
+        gameLoop();
+    }
 
-        // Game variables
-        let score = 0;
-        const bullets = [];
-        const enemies = [];
-        const ammoPacks = [];
-        let keys = {};
-        let lastShootTime = 0;
-        const fireRate = 300; // milliseconds between shots
+    // --- INPUTS ---
+    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keyup', e => keys[e.key] = false);
 
-        // Event listeners for input
-        document.addEventListener('keydown', (e) => keys[e.key] = true);
-        document.addEventListener('keyup', (e) => keys[e.key] = false);
-        canvas.addEventListener('click', shoot);
-        startGameButton.addEventListener('click', startGame);
-        closeButton.addEventListener('click', () => tutorialModal.style.display = 'none');
+    // --- GAME MECHANICS ---
+    function spawnEnemy() {
+        enemies.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: 15,
+            color: 'white',
+            speed: 1 + Math.random() * 2
+        });
+        enemySpan.innerText = enemies.length;
+    }
 
-        function startGame() {
-            gameState = 'PLAYING';
-            tutorialModal.style.display = 'none';
-            // Reset game state
-            player.health = 100;
-            player.ammo = 10;
-            score = 0;
-            enemies.length = 0;
-            bullets.length = 0;
-            ammoPacks.length = 0;
-            gameLoop(); // Start the game loop
-        }
-
-        // --- Player Movement ---
-        function updatePlayerPosition() {
-            if (keys['ArrowUp'] || keys['w']) player.y -= player.speed;
-            if (keys['ArrowDown'] || keys['s']) player.y += player.speed;
-            if (keys['ArrowLeft'] || keys['a']) player.x -= player.speed;
-            if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
-
-            // Keep player within canvas bounds
-            player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
-            player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
-        }
-
-        // --- Shooting ---
-        function shoot(event) {
-            if (gameState !== 'PLAYING' || player.ammo <= 0) return;
-            const currentTime = Date.now();
-            if (currentTime - lastShootTime < fireRate) return;
-            lastShootTime = currentTime;
-
-            player.ammo--;
-            updateStats();
-
-            const canvasRect = canvas.getBoundingClientRect();
-            const mouseX = event.clientX - canvasRect.left;
-            const mouseY = event.clientY - canvasRect.top;
-
-            // Calculate angle and velocity
-            const angle = Math.atan2(mouseY - player.y, mouseX - player.x);
-            const speed = 7;
-            bullets.push({
-                x: player.x,
-                y: player.y,
-                radius: 5,
-                color: 'white',
-                velocityX: Math.cos(angle) * speed,
-                velocityY: Math.sin(angle) * speed
+    function spawnHealthPack() {
+        if (Math.random() < 0.05) { // 5% chance per frame
+            healthPacks.push({
+                x: Math.random() * (canvas.width - 20),
+                y: Math.random() * (canvas.height - 20),
+                size: 15
             });
         }
+    }
 
-        function updateBullets() {
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                const bullet = bullets[i];
-                bullet.x += bullet.velocityX;
-                bullet.y += bullet.velocityY;
+    function drawBar(x, y, width, height, value, max, color) {
+        ctx.fillStyle = '#555'; // Background
+        ctx.fillRect(x, y, width, height);
+        ctx.fillStyle = color; // Foreground
+        ctx.fillRect(x, y, (value / max) * width, height);
+    }
 
-                // Remove bullets that are off-screen
-                if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
-                    bullets.splice(i, 1);
+    // --- CORE LOOP ---
+    function gameLoop() {
+        if (!gameRunning) return;
+
+        // Clear
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Movement
+        if (keys['ArrowUp'] || keys['w']) player.y -= player.speed;
+        if (keys['ArrowDown'] || keys['s']) player.y += player.speed;
+        if (keys['ArrowLeft'] || keys['a']) player.x -= player.speed;
+        if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
+
+        // Boundary
+        player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+        player.y = Math.max(0, Math.min(canvas.height - player.size, player.y));
+
+        // Draw Player
+        ctx.fillStyle = player.color;
+        ctx.fillRect(player.x, player.y, player.size, player.size);
+        drawBar(player.x - 5, player.y - 10, player.size + 10, 5, player.hp, player.maxHp, 'lime');
+
+        // Draw Health Packs
+        spawnHealthPack();
+        healthPacks.forEach((hp, index) => {
+            ctx.fillStyle = 'lime';
+            ctx.fillRect(hp.x, hp.y, hp.size, hp.size);
+            // Collect
+            if (player.x < hp.x + hp.size && player.x + player.size > hp.x &&
+                player.y < hp.y + hp.size && player.y + player.size > hp.y) {
+                player.hp = Math.min(player.maxHp, player.hp + 20);
+                healthPacks.splice(index, 1);
+            }
+        });
+
+        // Update Enemies
+        enemies.forEach((enemy, index) => {
+            // Move towards player
+            let dx = player.x - enemy.x;
+            let dy = player.y - enemy.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+            enemy.x += (dx / dist) * enemy.speed;
+            enemy.y += (dy / dist) * enemy.speed;
+
+            // Draw Enemy
+            ctx.fillStyle = enemy.color;
+            ctx.fillRect(enemy.x, enemy.y, enemy.size, enemy.size);
+
+            // Collision
+            if (player.x < enemy.x + enemy.size && player.x + player.size > enemy.x &&
+                player.y < enemy.y + enemy.size && player.y + player.size > enemy.y) {
+                player.hp -= 0.5; // Damage per frame
+                if (player.hp <= 0) {
+                    player.hp = 0;
+                    gameRunning = false;
+                    alert("Game Over! Enemies: " + enemies.length);
+                    location.reload(); // Simple restart
                 }
             }
-        }
+        });
 
-        // --- Enemies ---
-        function spawnEnemy() {
-            const radius = 10;
-            let x, y;
-
-            // Spawn off-screen
-            if (Math.random() < 0.5) {
-                x = Math.random() < 0.5 ? 0 - radius : canvas.width + radius;
-                y = Math.random() * canvas.height;
-            } else {
-                x = Math.random() * canvas.width;
-                y = Math.random() < 0.5 ? 0 - radius : canvas.height + radius;
-            }
-
-            const angle = Math.atan2(player.y - y, player.x - x);
-            const speed = (Math.random() * 1) + 1.5; // Random speed between 1.5 and 2.5
-
-            enemies.push({
-                x,
-                y,
-                radius,
-                color: 'red',
-                velocityX: Math.cos(angle) * speed,
-                velocityY: Math.sin(angle) * speed,
-                health: 1
-            });
-        }
-
-        let enemySpawnInterval;
-
-        function startEnemySpawning() {
-            // Spawn an enemy every 1000ms (1 second)
-            enemySpawnInterval = setInterval(spawnEnemy, 1000); 
-        }
-
-        function updateEnemies() {
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                const enemy = enemies[i];
-                // Simple movement towards player
-                // A better approach would be updating angle occasionally but this is fine for basic game
-                enemy.x += enemy.velocityX;
-                enemy.y += enemy.velocityY;
-
-                // Check collision with player
-                const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
-                if (dist - enemy.radius - player.radius < 1) {
-                    player.health -= 10; // Take damage
-                    updateStats();
-                    enemies.splice(i, 1); // Remove enemy on collision
-                    if (player.health <= 0) {
-                        gameOver();
-                    }
-                    continue;
-                }
-
-                // Check collision with bullets
-                for (let j = bullets.length - 1; j >= 0; j--) {
-                    const bullet = bullets[j];
-                    const bulletDist = Math.hypot(bullet.x - enemy.x, bullet.y - enemy.y);
-
-                    if (bulletDist - enemy.radius - bullet.radius < 1) {
-                        // Collision detected
-                        enemy.health--;
-                        bullets.splice(j, 1); // Remove bullet
-
-                        if (enemy.health <= 0) {
-                            // Enemy defeated
-                            score += 10;
-                            updateStats();
-                            enemies.splice(i, 1); // Remove enemy
-                        }
-                        break; // Stop checking other bullets for this enemy
-                    }
-                }
-            }
-        }
-
-        // --- Ammo Packs ---
-        function spawnAmmoPack() {
-            ammoPacks.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * canvas.height,
-                radius: 10,
-                color: 'orange',
-                ammoAmount: 10
-            });
-        }
-
-        let ammoSpawnInterval;
-
-        function startAmmoSpawning() {
-            // Spawn an ammo pack every 5000ms (5 seconds)
-            ammoSpawnInterval = setInterval(spawnAmmoPack, 5000); 
-        }
-
-        function updateAmmoPacks() {
-            for (let i = ammoPacks.length - 1; i >= 0; i--) {
-                const pack = ammoPacks[i];
-                // Check collision with player
-                const dist = Math.hypot(player.x - pack.x, player.y - pack.y);
-                if (dist - pack.radius - player.radius < 1) {
-                    // Pick up ammo
-                    player.ammo = Math.min(player.maxAmmo, player.ammo + pack.ammoAmount);
-                    updateStats();
-                    ammoPacks.splice(i, 1); // Remove pack
-                }
-            }
-        }
-
-
-        // --- Drawing functions ---
-        function drawPlayer() {
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-            ctx.fillStyle = player.color;
-            ctx.fill();
-            ctx.closePath();
-        }
-
-        function drawBullets() {
-            bullets.forEach(bullet => {
-                ctx.beginPath();
-                ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
-                ctx.fillStyle = bullet.color;
-                ctx.fill();
-                ctx.closePath();
-            });
-        }
-
-        function drawEnemies() {
-            enemies.forEach(enemy => {
-                ctx.beginPath();
-                ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
-                ctx.fillStyle = enemy.color;
-                ctx.fill();
-                ctx.closePath();
-            });
-        }
-
-        function drawAmmoPacks() {
-            ammoPacks.forEach(pack => {
-                ctx.beginPath();
-                ctx.arc(pack.x, pack.y, pack.radius, 0, Math.PI * 2);
-                ctx.fillStyle = pack.color;
-                ctx.fill();
-                ctx.closePath();
-            });
-        }
-        
-        function updateStats() {
-            ammoCountEl.textContent = player.ammo;
-            scoreCountEl.textContent = score;
-            healthCountEl.textContent = player.health;
-            // Optionally update the health bar div here if you want to use it
-            // document.getElementById('health-bar-fill').style.width = `${(player.health / player.maxHealth) * 100}%`;
-        }
-
-        // --- Game Management ---
-        function gameOver() {
-            gameState = 'GAME_OVER';
-            clearInterval(enemySpawnInterval);
-            clearInterval(ammoSpawnInterval);
-            // Display Game Over message and prompt restart
-            ctx.fillStyle = 'white';
-            ctx.font = '48px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
-            ctx.font = '24px Arial';
-            ctx.fillText('Click "Start Game" to play again', canvas.width / 2, canvas.height / 2 + 40);
-            tutorialModal.style.display = 'flex'; // Re-use modal to show end screen options/tutorial
-        }
-
-        // --- Main Game Loop ---
-        function gameLoop() {
-            if (gameState !== 'PLAYING') return;
-
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Update positions
-            updatePlayerPosition();
-            updateBullets();
-            updateEnemies();
-            updateAmmoPacks();
-
-            // Draw everything
-            drawAmmoPacks(); // Draw ammo first so player/enemies are on top
-            drawPlayer();
-            drawBullets();
-            drawEnemies();
-
-            // Request next frame
-            requestAnimationFrame(gameLoop);
-        }
-
-        // Initial setup
-        updateStats();
-        startEnemySpawning();
-        startAmmoSpawning();
-        tutorialModal.style.display = 'flex'; // Show tutorial modal on load
-    </script>
+        hpSpan.innerText = Math.floor(player.hp);
+        requestAnimationFrame(gameLoop);
+    }
+</script>
 </body>
 </html>
-         
- 
-       
-
-            
