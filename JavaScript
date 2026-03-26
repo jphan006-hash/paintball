@@ -9,11 +9,13 @@ let username = "Player 1";
 let selectedColor = "#4CAF50";
 let flies = [];
 let particles = [];
-let fPressed = false;
+let damageFlash = 0; // Controls the red flash
+let screenShake = 0; // Controls the screen shaking
 let leaderboard = JSON.parse(localStorage.getItem("froggyScores")) || [];
 
 let player = { x: 400, y: 250, radius: 25 };
 let mouse = { x: 400, y: 250 };
+let fPressed = false;
 
 // Input Listeners
 window.addEventListener("keydown", (e) => { if(e.key.toLowerCase() === 'f') fPressed = true; });
@@ -24,7 +26,6 @@ canvas.addEventListener("mousemove", (e) => {
     mouse.y = e.clientY - rect.top;
 });
 
-// UI Functions
 function selectFrog(color, el) {
     selectedColor = color;
     document.querySelectorAll('.character-option').forEach(opt => opt.classList.remove('selected'));
@@ -38,25 +39,34 @@ function updateLeaderboardUI() {
 }
 
 function updateHPBar() {
-    document.getElementById("hp-bar").style.width = Math.max(0, health) + "%";
+    const bar = document.getElementById("hp-bar");
+    bar.style.width = Math.max(0, health) + "%";
+    // Change color based on health
+    bar.style.backgroundColor = health < 30 ? "#ff1744" : "#ff3333";
 }
 
-// Game Logic
 function spawnFly() {
     if(!gameRunning) return;
-    let x = Math.random() < 0.5 ? -20 : canvas.width + 20;
-    let y = Math.random() * canvas.height;
-    flies.push({ x: x, y: y, speed: 1.2 + (score * 0.05) });
-    setTimeout(spawnFly, Math.max(500, 2000 - (score * 50)));
+    let side = Math.floor(Math.random() * 4);
+    let x, y;
+    if(side === 0) { x = Math.random() * canvas.width; y = -20; }
+    else if(side === 1) { x = canvas.width + 20; y = Math.random() * canvas.height; }
+    else if(side === 2) { x = Math.random() * canvas.width; y = canvas.height + 20; }
+    else { x = -20; y = Math.random() * canvas.height; }
+    
+    flies.push({ x: x, y: y, speed: 1.3 + (score * 0.04) });
+    setTimeout(spawnFly, Math.max(400, 1800 - (score * 40)));
 }
 
 function createPop(x, y) {
-    for(let i=0; i<8; i++) {
+    screenShake = 5; // Shake the screen when eating
+    for(let i=0; i<10; i++) {
         particles.push({
             x: x, y: y, 
-            vx: (Math.random()-0.5)*10, 
-            vy: (Math.random()-0.5)*10, 
-            life: 1.0 
+            vx: (Math.random()-0.5)*12, 
+            vy: (Math.random()-0.5)*12, 
+            life: 1.0,
+            color: "#333"
         });
     }
 }
@@ -82,14 +92,16 @@ function endGame() {
     document.getElementById("startModal").style.display = "flex";
 }
 
-// Update Loop
 function update() {
+    // Screen effects decay
+    if (damageFlash > 0) damageFlash -= 0.05;
+    if (screenShake > 0) screenShake *= 0.9;
+
     player.x += (mouse.x - player.x) * 0.12;
     player.y += (mouse.y - player.y) * 0.12;
 
-    // Particles
     particles.forEach((p, i) => {
-        p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+        p.x += p.vx; p.y += p.vy; p.life -= 0.04;
         if(p.life <= 0) particles.splice(i, 1);
     });
 
@@ -102,7 +114,6 @@ function update() {
         f.x += (dx / dist) * f.speed;
         f.y += (dy / dist) * f.speed;
 
-        // Eat detection
         if (fPressed) {
             let tDist = Math.sqrt((mouse.x-f.x)**2 + (mouse.y-f.y)**2);
             if (tDist < 25) {
@@ -114,52 +125,68 @@ function update() {
             }
         }
 
-        // Damage detection
         if (dist < player.radius) {
-            health -= 0.5; 
+            health -= 0.6; 
+            damageFlash = 0.3; // Trigger red flash
             updateHPBar();
             if(health <= 0) endGame();
         }
     }
 }
 
-// Render Loop
 function draw() {
+    ctx.save();
+    // Apply Screen Shake
+    if (screenShake > 0.1) {
+        ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
+    }
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Particles
+    // Draw Lily Pad
+    ctx.fillStyle = "#2e7d32";
+    ctx.beginPath(); ctx.ellipse(player.x, player.y + 10, 45, 18, 0, 0, 7); ctx.fill();
+
+    // Draw Particles
     particles.forEach(p => {
         ctx.fillStyle = `rgba(0,0,0,${p.life})`;
-        ctx.fillRect(p.x, p.y, 4, 4);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, 7); ctx.fill();
     });
 
-    // Flies
+    // Draw Flies
     flies.forEach(f => {
         ctx.fillStyle = "white"; 
-        ctx.beginPath(); ctx.arc(f.x-4, f.y-4, 5, 0, 7); ctx.fill();
-        ctx.beginPath(); ctx.arc(f.x+4, f.y-4, 5, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(f.x-5, f.y-5, 5, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(f.x+5, f.y-5, 5, 0, 7); ctx.fill();
         ctx.fillStyle = "#111"; 
         ctx.beginPath(); ctx.arc(f.x, f.y, 6, 0, 7); ctx.fill();
     });
 
-    // Lily Pad
-    ctx.fillStyle = "#2e7d32";
-    ctx.beginPath(); ctx.ellipse(player.x, player.y + 10, 45, 18, 0, 0, 6.2); ctx.fill();
-
-    // Tongue
+    // Draw Tongue
     if(fPressed) {
         ctx.strokeStyle = "#ff80ab"; ctx.lineWidth = 6;
         ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(mouse.x, mouse.y); ctx.stroke();
         ctx.fillStyle = "#ff4081";
-        ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 8, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 10, 0, 7); ctx.fill();
     }
 
-    // Frog
+    // Draw Frog
     ctx.fillStyle = selectedColor;
     ctx.beginPath(); ctx.arc(player.x, player.y, 25, 0, 7); ctx.fill();
     ctx.fillStyle = "white";
     ctx.beginPath(); ctx.arc(player.x-10, player.y-12, 7, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.arc(player.x+10, player.y-12, 7, 0, 7); ctx.fill();
+    ctx.fillStyle = "black";
+    ctx.beginPath(); ctx.arc(player.x-10, player.y-14, 3, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(player.x+10, player.y-14, 3, 0, 7); ctx.fill();
+
+    // Draw Damage Flash
+    if (damageFlash > 0) {
+        ctx.fillStyle = `rgba(255, 0, 0, ${damageFlash})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    ctx.restore();
 }
 
 function gameLoop() {
