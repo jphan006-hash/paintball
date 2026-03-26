@@ -3,154 +3,227 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Froggy Eats Game</title>
-
+<title>Froggy Defender</title>
 <style>
-body {
-  margin: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  background-color: #222;
-  color: white;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  overflow: hidden;
-}
-
-canvas {
-  background-color: #0077be;
-  border: 4px solid #004d00;
-  border-radius: 10px;
-  cursor: crosshair;
-}
-
-#game-container {
-  text-align: center;
-  position: relative;
-}
-
-#game-stats {
-  margin-bottom: 10px;
-  font-size: 20px;
-  font-weight: bold;
-  background: rgba(0,0,0,0.5);
-  padding: 10px;
-  border-radius: 5px;
-}
-
-.modal {
-  display: flex;
-  position: fixed;
-  z-index: 10;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0,0,0,0.8);
-  justify-content: center;
-  align-items: center;
-}
-
-.modal-content {
-  background-color: #e0f2f1;
-  padding: 30px;
-  border-radius: 15px;
-  color: #333;
-  text-align: center;
-  border: 4px solid #4CAF50;
-}
-
-.character-option {
-  display: inline-block;
-  padding: 15px;
-  margin: 10px;
-  cursor: pointer;
-  border: 3px solid #333;
-  border-radius: 50%;
-  width: 60px;
-  height: 60px;
-  transition: 0.2s;
-}
-
-.character-option:hover {
-  transform: scale(1.1);
-}
-
-button {
-  padding: 10px 25px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  border-radius: 5px;
-  margin-top: 15px;
-}
+    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #1a1a1a; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+    canvas { background-color: #0077be; border: 5px solid #004d00; border-radius: 15px; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+    #game-container { text-align: center; position: relative; }
+    #game-stats { margin-bottom: 10px; font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; display: flex; justify-content: space-around; border: 2px solid #4CAF50; }
+    .modal { display: flex; position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); justify-content: center; align-items: center; }
+    .modal-content { background-color: #e0f2f1; padding: 30px; border-radius: 15px; color: #333; text-align: center; border: 5px solid #4CAF50; width: 420px; }
+    .character-option { display: inline-block; margin: 10px; cursor: pointer; border: 4px solid transparent; border-radius: 15px; padding: 10px; transition: 0.2s; background: #b2dfdb; }
+    .character-option.selected { border-color: #4CAF50; background: #fff; transform: scale(1.1); }
+    .char-emoji { font-size: 40px; display: block; }
+    .char-pad { width: 40px; height: 10px; border-radius: 50%; margin: 5px auto; }
+    input { padding: 12px; border-radius: 8px; border: 2px solid #4CAF50; width: 80%; margin-bottom: 20px; font-size: 16px; outline: none; }
+    button { padding: 12px 30px; background-color: #4CAF50; color: white; border: none; cursor: pointer; font-size: 18px; border-radius: 8px; font-weight: bold; transition: 0.3s; }
+    button:hover { background-color: #388E3C; transform: translateY(-2px); }
+    #leaderboard-list { text-align: left; margin-top: 15px; background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ccc; max-height: 150px; overflow-y: auto; }
+    .hp-bg { width: 150px; height: 20px; background: #444; border-radius: 10px; display: inline-block; vertical-align: middle; border: 2px solid #fff; }
+    #hp-bar { height: 100%; background: #ff3333; width: 100%; border-radius: 8px; transition: width 0.2s; }
+    .controls-hint { font-size: 14px; color: #666; margin-top: 10px; }
 </style>
 </head>
-
 <body>
 
 <div id="game-container">
-  <div id="game-stats">
-    Health: <span id="hp">100</span> |
-    Flies Eaten: <span id="score">0</span>
-  </div>
-
-  <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <div id="game-stats">
+        <div>👤 <span id="stat-name">---</span></div>
+        <div>❤️ HP: <div class="hp-bg"><div id="hp-bar"></div></div></div>
+        <div>🪰 Eaten: <span id="score">0</span></div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <div style="margin-top:10px; color: #aaa;">Press <b>[F]</b> to Eat Flies!</div>
 </div>
 
-<!-- START MODAL -->
 <div id="startModal" class="modal">
-  <div class="modal-content">
-    <h2>Select Lily Pad Color</h2>
+    <div class="modal-content">
+        <h1 style="color: #2e7d32; margin-top: 0;">FROGGY SURVIVAL</h1>
+        <input type="text" id="username" placeholder="Your Name" maxlength="12">
+        
+        <p><b>Choose Your Frog:</b></p>
+        <div id="char-selection">
+            <div class="character-option selected" onclick="selectFrog('🐸', '#4CAF50', this)">
+                <span class="char-emoji">🐸</span>
+                <div class="char-pad" style="background: #4CAF50;"></div>
+            </div>
+            <div class="character-option" onclick="selectFrog('🦖', '#FF5722', this)">
+                <span class="char-emoji">🦖</span>
+                <div class="char-pad" style="background: #FF5722;"></div>
+            </div>
+            <div class="character-option" onclick="selectFrog('🐢', '#2196F3', this)">
+                <span class="char-emoji">🐢</span>
+                <div class="char-pad" style="background: #2196F3;"></div>
+            </div>
+        </div>
 
-    <div id="char-selection">
-      <!-- Green -->
-      <div class="character-option"
-           onclick="selectColor('#4CAF50')"
-           style="background-color: #4CAF50;"></div>
+        <button onclick="startGame()">ENTER THE POND</button>
+        <div class="controls-hint">Move with Mouse • Press [F] to Attack/Eat</div>
 
-      <!-- Blue -->
-      <div class="character-option"
-           onclick="selectColor('#2196F3')"
-           style="background-color: #2196F3;"></div>
-
-      <!-- Yellow -->
-      <div class="character-option"
-           onclick="selectColor('#FFC107')"
-           style="background-color: #FFC107;"></div>
-
-      <!-- NEW PURPLE -->
-      <div class="character-option"
-           onclick="selectColor('#9C27B0')"
-           style="background-color: #9C27B0;"></div>
+        <h3 style="margin-bottom: 5px;">🏆 Top Defenders</h3>
+        <div id="leaderboard-list"></div>
     </div>
-
-    <button onclick="startGame()">Start Game</button>
-  </div>
 </div>
 
 <script>
-let selectedColor = "#4CAF50"; // default
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-function selectColor(color) {
-  selectedColor = color;
+let gameRunning = false;
+let score = 0;
+let health = 100;
+let username = "Player 1";
+let selectedFrog = "🐸";
+let selectedColor = "#4CAF50";
+let flies = [];
+let fPressed = false;
+let leaderboard = JSON.parse(localStorage.getItem("froggyScores")) || [];
+
+let player = { x: 400, y: 250, radius: 35 };
+let mouse = { x: 400, y: 250 };
+
+// Controls
+window.addEventListener("keydown", (e) => { if(e.key.toLowerCase() === 'f') fPressed = true; });
+window.addEventListener("keyup", (e) => { if(e.key.toLowerCase() === 'f') fPressed = false; });
+canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+});
+
+function selectFrog(emoji, color, el) {
+    selectedFrog = emoji;
+    selectedColor = color;
+    document.querySelectorAll('.character-option').forEach(opt => opt.classList.remove('selected'));
+    el.classList.add('selected');
+}
+
+function updateLeaderboardUI() {
+    const list = document.getElementById("leaderboard-list");
+    list.innerHTML = leaderboard.slice(0, 5)
+        .map((s, i) => `<div>#${i+1} <b>${s.name}</b>: ${s.score} flies</div>`).join('') || "No records yet!";
 }
 
 function startGame() {
-  document.getElementById("startModal").style.display = "none";
-
-  // Example: draw lily pad with selected color
-  const canvas = document.getElementById("gameCanvas");
-  const ctx = canvas.getContext("2d");
-
-  ctx.fillStyle = selectedColor;
-  ctx.beginPath();
-  ctx.arc(400, 250, 50, 0, Math.PI * 2);
-  ctx.fill();
+    username = document.getElementById("username").value || "Nameless Frog";
+    document.getElementById("stat-name").innerText = username;
+    document.getElementById("startModal").style.display = "none";
+    score = 0; health = 100; flies = [];
+    document.getElementById("score").innerText = score;
+    updateHPBar();
+    gameRunning = true;
+    spawnFly();
+    gameLoop();
 }
+
+function spawnFly() {
+    if(!gameRunning) return;
+    // Spawn fly at edges
+    let side = Math.floor(Math.random() * 4);
+    let x, y;
+    if(side === 0) { x = Math.random() * canvas.width; y = -20; }
+    else if(side === 1) { x = canvas.width + 20; y = Math.random() * canvas.height; }
+    else if(side === 2) { x = Math.random() * canvas.width; y = canvas.height + 20; }
+    else { x = -20; y = Math.random() * canvas.height; }
+
+    flies.push({ x: x, y: y, speed: 1.5 + (score * 0.05) });
+    setTimeout(spawnFly, Math.max(400, 1500 - (score * 20)));
+}
+
+function updateHPBar() {
+    document.getElementById("hp-bar").style.width = health + "%";
+}
+
+function endGame() {
+    gameRunning = false;
+    leaderboard.push({ name: username, score: score });
+    leaderboard.sort((a, b) => b.score - a.score);
+    localStorage.setItem("froggyScores", JSON.stringify(leaderboard.slice(0, 10)));
+    alert(`GAME OVER!\n${username} ate ${score} flies before being swarmed!`);
+    updateLeaderboardUI();
+    document.getElementById("startModal").style.display = "flex";
+}
+
+function update() {
+    // Player movement
+    player.x += (mouse.x - player.x) * 0.12;
+    player.y += (mouse.y - player.y) * 0.12;
+
+    for (let i = flies.length - 1; i >= 0; i--) {
+        let f = flies[i];
+        
+        // Fly AI: Chase player
+        let dx = player.x - f.x;
+        let dy = player.y - f.y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        
+        f.x += (dx / dist) * f.speed;
+        f.y += (dy / dist) * f.speed;
+
+        // Collision logic
+        if (dist < player.radius) {
+            if (fPressed) {
+                // EATEN!
+                flies.splice(i, 1);
+                score++;
+                document.getElementById("score").innerText = score;
+            } else {
+                // ATTACKED!
+                health -= 0.3; // Flies deal damage over time while touching
+                updateHPBar();
+                if(health <= 0) endGame();
+            }
+        }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Water Effects
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
+    for(let i=0; i<5; i++) ctx.beginPath(), ctx.arc(i*180, i*100, 40, 0, Math.PI*2), ctx.fill();
+
+    // Draw Flies
+    ctx.font = "24px Arial";
+    flies.forEach(f => {
+        ctx.fillText("🪰", f.x - 10, f.y + 8);
+    });
+
+    // Draw Lily Pad
+    ctx.fillStyle = selectedColor;
+    ctx.beginPath();
+    ctx.ellipse(player.x, player.y + 15, player.radius, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.2)";
+    ctx.stroke();
+
+    // Draw Tongue (Attack Visual)
+    if(fPressed) {
+        ctx.strokeStyle = "#ff80ab";
+        ctx.lineWidth = 8;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(player.x, player.y);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.stroke();
+    }
+
+    // Draw Frog
+    ctx.font = "55px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(selectedFrog, player.x, player.y);
+}
+
+function gameLoop() {
+    if (!gameRunning) return;
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+updateLeaderboardUI();
 </script>
 
 </body>
