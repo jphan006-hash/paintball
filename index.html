@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paintball Game</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #333;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            background-color: #f50000;
+            border: 2px solid black;
+        }
+        #game-container {
+            text-align: center;
+        }
+        #game-stats {
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="game-stats">
+            Ammo: <span id="ammo-count">10</span> | Score: <span id="score-count">0</span> | Health: <span id="health-count">100</span>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const ammoCountEl = document.getElementById('ammo-count');
+        const scoreCountEl = document.getElementById('score-count');
+        const healthCountEl = document.getElementById('health-count');
+
+        let player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: 20,
+            color: 'blue',
+            speed: 5,
+            health: 100
+        };
+
+        let ammo = 10;
+        let score = 0;
+        const MAX_AMMO = 30;
+
+        let bullets = [];
+        let enemies = [];
+        let reloadCans = [];
+
+        const keys = {};
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        canvas.addEventListener('click', shoot);
+
+        function shoot(event) {
+            if (ammo > 0) {
+                const angle = Math.atan2(event.clientY - canvas.getBoundingClientRect().top - player.y, event.clientX - canvas.getBoundingClientRect().left - player.x);
+                const speed = 7;
+                bullets.push({
+                    x: player.x,
+                    y: player.y,
+                    size: 5,
+                    color: 'green',
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed
+                });
+                ammo--;
+                updateStats();
+            }
+        }
+
+        function createEnemy() {
+            const size = Math.random() * 10 + 15;
+            const x = Math.random() < 0.5 ? 0 - size : canvas.width + size;
+            const y = Math.random() * canvas.height;
+            const speed = Math.random() * 2 + 1;
+            enemies.push({
+                x, y, size, color: 'red', speed
+            });
+        }
+
+        function createReloadCan() {
+            const size = 15;
+            const x = Math.random() * (canvas.width - size * 2) + size;
+            const y = Math.random() * (canvas.height - size * 2) + size;
+            reloadCans.push({
+                x, y, size, color: 'orange', value: 10
+            });
+        }
+
+        function update() {
+            // Player movement
+            if (keys['ArrowUp'] || keys['w']) player.y -= player.speed;
+            if (keys['ArrowDown'] || keys['s']) player.y += player.speed;
+            if (keys['ArrowLeft'] || keys['a']) player.x -= player.speed;
+            if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
+
+            // Boundary checks for player
+            if (player.x < player.size) player.x = player.size;
+            if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
+            if (player.y < player.size) player.y = player.size;
+            if (player.y > canvas.height - player.size) player.y = canvas.height - player.size;
+
+            // Update bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].x += bullets[i].vx;
+                bullets[i].y += bullets[i].vy;
+                // Remove bullets off-screen
+                if (bullets[i].x < 0 || bullets[i].x > canvas.width || bullets[i].y < 0 || bullets[i].y > canvas.height) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Update enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+                enemy.x += Math.cos(angle) * enemy.speed;
+                enemy.y += Math.sin(angle) * enemy.speed;
+
+                // Collision detection with player (simple distance check)
+                const dist = Math.sqrt((player.x - enemy.x)**2 + (player.y - enemy.y)**2);
+                if (dist < player.size + enemy.size) {
+                    player.health -= 1; // Inflict damage
+                    enemies.splice(i, 1); // Remove enemy on collision
+                    updateStats();
+                }
+            }
+
+            // Collision detection with bullets and enemies
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const dist = Math.sqrt((bullets[i].x - enemies[j].x)**2 + (bullets[i].y - enemies[j].y)**2);
+                    if (dist < bullets[i].size + enemies[j].size) {
+                        score += 10;
+                        bullets.splice(i, 1); // Remove bullet
+                        enemies.splice(j, 1); // Remove enemy
+                        updateStats();
+                        break; // Exit inner loop after collision
+                    }
+                }
+            }
+
+            // Collision detection with reload cans
+            for (let i = reloadCans.length - 1; i >= 0; i--) {
+                const can = reloadCans[i];
+                const dist = Math.sqrt((player.x - can.x)**2 + (player.y - can.y)**2);
+                if (dist < player.size + can.size) {
+                    ammo = Math.min(MAX_AMMO, ammo + can.value);
+                    reloadCans.splice(i, 1); // Remove can
+                    updateStats();
+                }
+            }
+
+            // Game over condition
+            if (player.health <= 0) {
+                alert('Game Over! Your score: ' + score);
+                document.location.reload(); // or implement a restart function
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw player
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw bullets
+            for (const bullet of bullets) {
+                ctx.fillStyle = bullet.color;
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw enemies
+            for (const enemy of enemies) {
+                ctx.fillStyle = enemy.color;
+                ctx.fillRect(enemy.x - enemy.size / 2, enemy.y - enemy.size / 2, enemy.size, enemy.size);
+            }
+
+            // Draw reload cans
+            for (const can of reloadCans) {
+                ctx.fillStyle = can.color;
+                ctx.fillRect(can.x - can.size / 2, can.y - can.size / 2, can.size, can.size);
+                ctx.fillStyle = 'black';
+                ctx.fillText('+10', can.x - can.size / 2, can.y - can.size / 2 - 5);
+            }
+        }
+
+        function updateStats() {
+            ammoCountEl.textContent = ammo;
+            scoreCountEl.textContent = score;
+            healthCountEl.textContent = player.health;
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initial spawns
+        setInterval(createEnemy, 1500);
+        setInterval(createReloadCan, 5000);
+        updateStats();
+        gameLoop();
+    </script>
+</body>
+</html>
